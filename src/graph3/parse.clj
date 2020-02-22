@@ -1,6 +1,8 @@
 (ns graph3.parse
-  (:require [instaparse.core :as insta]
-            [clojure.string :refer [join]]))
+  (:require
+   [graph3.grammar :refer [parse-grammar]]
+   [instaparse.core :as insta]
+   [clojure.string :refer [join]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;; text -> function  ;;
@@ -17,7 +19,7 @@
             (partition 2 (list* f g more)))))
 
 (defn- get-parser []
-  (insta/parser (slurp "src/graph3/grammar")))
+  (insta/parser (parse-grammar)))
 
 (defn- higher-order
   "Factory method to enable function arithmetic

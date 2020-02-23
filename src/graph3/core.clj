@@ -13,15 +13,19 @@
              (org.jfree.chart JFreeChart ChartPanel ChartFactory)))
 
 (def ^:private default-frame-values
-  { :step 100
-   :x-range-initial [-10 10]
-   :x-range-min [-1 1]
-   :x-range-max [-100 100]
+  {:step 100
+   :range-center 0
+   :min-range-center -100
+   :max-range-center 100
+   :range-width 10
+   :max-range-width 100
+   :min-range-width 1
    :width 700
    :height 700
    :image-width 500
    :image-height 500
    :stroke 1
+   :font-size 25
    :background-color (color 240 240 240)})
 
 (defn fn->series
@@ -132,7 +136,9 @@
 
 (def the-graph (atom {}))
 
-(def the-range (atom []))
+(def the-range-width (atom (:range-width default-frame-values)))
+
+(def the-range-center (atom (:range-center default-frame-values)))
 
 (defn- reset-graph! [] (reset! the-graph {}))
 
@@ -144,27 +150,111 @@
   []
   (when (graph-registered?)
     (let [m @the-graph
-          [low high] @the-range]
+          low (- @the-range-center @the-range-width)
+          high (+ @the-range-center @the-range-width)]
       (fns->chart-image m low high))))
 
 (defn- update-canvas [root]
-  (let [im (get-chart-image)]
+  (when-let [im (get-chart-image)]
     (config!
      (get-widget root :chart)
      :paint
-     (when (some? im) (image-shower im)))))
+     (image-shower im))))
 
 (defn- buttons []
   (horizontal-panel
    :items  (->> [:view :reset :clear :close]
-                (map (fn [k] (button :text (name k) :class :font :id k))))))
+                (map (fn [k]
+                       (button :text (name k) :class :font :id k))))))
+
+(defn- make-slider [s id value low high ]
+  (horizontal-panel
+   :items [(label :text s :class :font)
+           (slider :value value :id id :min low :max high )]))
+
+(defn- sliders []
+  (let [{center :range-center
+         c-min :min-range-center
+         c-max :max-range-center
+         ran :range-width
+         r-min :min-range-width
+         r-max :max-range-width} default-frame-values]
+    (vertical-panel
+     :items [(make-slider "center" :center center c-min c-max)
+             (make-slider "range" :range ran r-min r-max)])))
 
 (defn- input-text []
   (horizontal-panel
    :items [(label :text "f(x)=" :class :font)
            (text :editable? true :id :input :class :font)]))
 
+(defn- parse-string
+  "Gets function from the string takes from input text.
+  Returns nil on parse error."
+  [root]
+  (let [s (config (get-widget root :input) :text)
+        f (string->fn s)]
+    (when f [s f])))
+
 (defn- reset-input [root]
   (config! (get-widget root :input) :text "")
   root)
 
+(defn- buttons []
+  (horizontal-panel :items
+                    (->> [:view :reset :clear :close]
+                         (map #(button :text (name %)
+                                       :class :font
+                                       :id %)))))
+
+(defn- button-action
+  "Returns fn which installs a button action."
+  [id type-key f]
+  (fn [root]
+    (listen (get-widget root id)
+            type-key
+            f)
+    root))
+
+(def view-action
+  (button-action
+   :view
+   :mouse-pressed
+   (fn [e]
+     (let [r (to-root e)]
+       (if-let [[s f] (parse-input r)]
+         (do
+           (swap! the-graph assoc s f)
+           (update-canvas r))
+         (alert "incorrect input"))))))
+
+
+
+(defn- add-behaviors [root]
+  (-> root view-action))
+
+(defn- set-font [root n]
+  (config! (get-widgets-class root :font) :font (font :size n))
+  root)
+
+(defn- main-frame []
+  (let [{:keys [width height font-size]} default-frame-values]
+    (-> (frame :width width
+               :height
+               height
+               :content (border-panel
+                         :north
+                         (vertical-panel
+                          :items [(buttons) (input-text) (sliders)])
+                         :center (canvas :id :chart)))
+        (set-font font-size))))
+
+(defn- run []
+  (-> (main-frame) add-behaviors show!))
+
+(comment
+
+  (run)
+
+
+  )

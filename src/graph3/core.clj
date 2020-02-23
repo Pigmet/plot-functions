@@ -142,6 +142,17 @@
 
 (defn- reset-graph! [] (reset! the-graph {}))
 
+(defn- reset-scalers! []
+  (let [{center :range-center ran :range-width} default-frame-values]
+    (reset! the-range-width ran)
+    (reset! the-range-center center)))
+
+(defn- reset-all-atoms! []
+  (reset-graph!)
+  (reset-scalers!))
+
+(reset-all-atoms!)
+
 (defn- graph-registered? [] (seq @the-graph))
 
 (defn- get-chart-image
@@ -188,7 +199,7 @@
    :items [(label :text "f(x)=" :class :font)
            (text :editable? true :id :input :class :font)]))
 
-(defn- parse-string
+(defn- parse-input
   "Gets function from the string takes from input text.
   Returns nil on parse error."
   [root]
@@ -216,6 +227,14 @@
             f)
     root))
 
+(defn- slider-action
+  [id f]
+  (fn [root]
+    (listen (get-widget root id)
+            :change
+            f)
+    root))
+
 (def view-action
   (button-action
    :view
@@ -228,10 +247,16 @@
            (update-canvas r))
          (alert "incorrect input"))))))
 
-
+(def center-slider-action
+  (slider-action
+   :center
+   (fn [e] (let [r (to-root e)
+                 {:keys [center]} (value r)]
+             (reset! the-range-center center)
+             (update-canvas r)) )) )
 
 (defn- add-behaviors [root]
-  (-> root view-action))
+  (-> root view-action center-slider-action))
 
 (defn- set-font [root n]
   (config! (get-widgets-class root :font) :font (font :size n))
@@ -255,6 +280,5 @@
 (comment
 
   (run)
-
 
   )

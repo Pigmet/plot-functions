@@ -277,6 +277,8 @@
 (defn- run []
   (-> (main-frame) add-behaviors show!))
 
+;; TODO : work on the process: update atom -> update frame
+
 (comment
 
   (run)

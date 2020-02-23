@@ -299,6 +299,9 @@
       add-behaviors
       show!))
 
+;;FIXME: fix the  view range [x-min x-max] issue; make sure
+;; that x-min < x-max is always the case. 
+
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]

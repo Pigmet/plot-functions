@@ -14,12 +14,6 @@
 
 (def ^:private default-frame-values
   {:step 100
-   :range-center 0
-   :min-range-center -100
-   :max-range-center 100
-   :range-width 10
-   :max-range-width 100
-   :min-range-width 1
    :width 700
    :height 700
    :image-width 500
@@ -118,55 +112,29 @@
   [im]
   (fn [c g] (.drawImage g im 0 0 nil)))
 
-(defn- view-chart
-  "Experimental method just for displaying function graphs."
-  [m low high]  
-  (let [im (fns->chart-image m low high)
-        {:keys [width height]} default-frame-values 
-        f (frame :width width :height height
-                 :content (canvas :id :chart
-                                  :paint (image-shower im)))]
-    (show! f)))
-
-;;(view-chart {"x" (fn [x] x) "x**2" (fn [x] (* x x ))} -10 20)
-
 ;;;;;;;;;;;;;;
 ;; make ui  ;;
 ;;;;;;;;;;;;;;
 
 (def the-graph (atom {}))
 
-(def the-range-width (atom (:range-width default-frame-values)))
-
-(def the-range-center (atom (:range-center default-frame-values)))
-
 (defn- reset-graph! [] (reset! the-graph {}))
-
-(defn- reset-scalers! []
-  (let [{center :range-center ran :range-width} default-frame-values]
-    (reset! the-range-width ran)
-    (reset! the-range-center center)))
-
-(defn- reset-all-atoms! []
-  (reset-graph!)
-  (reset-scalers!))
-
-(reset-all-atoms!)
 
 (defn- graph-registered? [] (seq @the-graph))
 
 (defn- get-chart-image
-  "Returns chart as BufferedImage. The stateful atom registering
-  functions get read."
-  []
+  "Returns chart as BufferedImage by obtaining value
+  from the atom registering the functions to plot."
+  [root]
   (when (graph-registered?)
     (let [m @the-graph
-          low (- @the-range-center @the-range-width)
-          high (+ @the-range-center @the-range-width)]
+          {:keys [center range]} (value root)
+          low (- center range)
+          high (+ center range)]
       (fns->chart-image m low high))))
 
 (defn- update-canvas [root]
-  (when-let [im (get-chart-image)]
+  (let   [im (get-chart-image root)]
     (config!
      (get-widget root :chart)
      :paint
@@ -178,21 +146,42 @@
                 (map (fn [k]
                        (button :text (name k) :class :font :id k))))))
 
+(def ^:private slider-constants
+  {:center-init 0
+   :center-min -100
+   :center-max 100
+   :range-init 10
+   :range-max 100
+   :range-min 0.1})
+
 (defn- make-slider [s id value low high ]
   (horizontal-panel
    :items [(label :text s :class :font)
            (slider :value value :id id :min low :max high )]))
 
 (defn- sliders []
-  (let [{center :range-center
-         c-min :min-range-center
-         c-max :max-range-center
-         ran :range-width
-         r-min :min-range-width
-         r-max :max-range-width} default-frame-values]
+  (let [{center :center-init
+         c-min :center-min
+         c-max :center-max
+         ran :range-init
+         r-min :range-min
+         r-max :range-max} slider-constants]
     (vertical-panel
      :items [(make-slider "center" :center center c-min c-max)
              (make-slider "range" :range ran r-min r-max)])))
+
+(defn- reset-sliders [root]
+  (let [center-slider (get-widget root :center)
+        range-slider (get-widget root :range)
+        {:keys [center-init range-init]} slider-constants]
+    (config! center-slider :value center-init)
+    (config! range-slider :value range-init)
+    (update-canvas root)))
+
+(defn- reset-all [root]
+  (reset-sliders root)
+  (reset-graph!)
+  (update-canvas root))
 
 (defn- input-text []
   (horizontal-panel
@@ -247,16 +236,47 @@
            (update-canvas r))
          (alert "incorrect input"))))))
 
+(def close-action
+  (button-action
+   :close
+   :mouse-pressed
+   (fn [e]
+     (let [r (to-root e)]
+       (reset-all r)
+       (dispose! r)))))
+
+(def reset-action
+  (button-action
+   :reset
+   :mouse-pressed
+   (fn [e] (reset-sliders (to-root e)))))
+
+(def clear-action
+  (button-action
+   :clear
+   :mouse-pressed
+   (fn [e] (let [r (to-root e)]
+             (reset-input r)
+             (reset-all r)))))
+
 (def center-slider-action
   (slider-action
    :center
-   (fn [e] (let [r (to-root e)
-                 {:keys [center]} (value r)]
-             (reset! the-range-center center)
-             (update-canvas r)) )) )
+   (fn [e] (update-canvas (to-root e)))))
+
+(def range-slider-action
+  (slider-action
+   :range
+   (fn [e] (update-canvas (to-root e)))))
 
 (defn- add-behaviors [root]
-  (-> root view-action center-slider-action))
+  (-> root
+      close-action
+      reset-action
+      view-action
+      clear-action
+      center-slider-action
+      range-slider-action))
 
 (defn- set-font [root n]
   (config! (get-widgets-class root :font) :font (font :size n))
@@ -277,10 +297,7 @@
 (defn- run []
   (-> (main-frame) add-behaviors show!))
 
-;; TODO : work on the process: update atom -> update frame
+(defn -main [& args] (run))
 
-(comment
 
-  (run)
 
-  )

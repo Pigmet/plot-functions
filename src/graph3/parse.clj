@@ -1,8 +1,48 @@
 (ns graph3.parse
   (:require
-   [graph3.grammar :refer [parse-grammar]]
    [instaparse.core :as insta]
    [clojure.string :refer [join]]))
+
+(def ^:private the-grammar 
+  "EXP= op f op
+
+  <f> = basic-fn | f-op | left op f op right
+
+  <f-op> = f-add | f-minus | f-mul | f-div | f-negate
+  f-negate = <minus> op f
+  f-div = f op <div> op f
+  f-mul = f op <mul> op f
+  f-minus = f op <minus> op f
+  f-add = f op <add> op f
+
+  <basic-fn> = const | identity | special-fn | exponential
+  special-fn = special-fn-name op left op f op right
+  <special-fn-name> = 'sin' | 'cos' | 'tan' | 'exp' | 'log'
+  identity = var
+  exponential = f op <power> op number
+  const = number
+
+  <left> = <'('>
+  <right> = <')'>
+
+  <power> = <'**'>
+  <var> = <'x'>
+
+  <add> = '+'
+  <mul> = '*'
+  <div> = '/'
+  <minus> = '-'
+
+  <op> = <whitespace*>
+  whitespace = #'\\s+'
+  word = letter+
+
+  number =  digit+
+  pos-int = #'[1-9]'
+  <letter> = #'[a-zA-Z]'
+  <digit> = #'[0-9]'
+
+  ")
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;; text -> function  ;;
@@ -19,7 +59,7 @@
             (partition 2 (list* f g more)))))
 
 (defn- get-parser []
-  (insta/parser (parse-grammar)))
+  (insta/parser the-grammar))
 
 (defn- higher-order
   "Factory method to enable function arithmetic
@@ -49,45 +89,47 @@
 ;; parse  ;;
 ;;;;;;;;;;;;
 
+
+
 (defn- handle-op [id]
   (fn [& args]
     {:type id :items (vec args)}))
 
 (def ^:private special-fn-table
-  {"cos" #( Math/cos %)
-   "sin" #(Math/sin %)
-   "tan" #( Math/tan %)
-   "exp" #(Math/exp %)
-   "log" #(Math/log %)})
+{"cos" #( Math/cos %)
+ "sin" #(Math/sin %)
+ "tan" #( Math/tan %)
+ "exp" #(Math/exp %)
+ "log" #(Math/log %)})
 
 (def ^:private parse-map-base
-  {:number (fn [& args] (read-string (apply str args))) 
-   :const (fn [x] {:type :const :value x})
-   :identity (fn [& _] {:type :identity})
-   :exponential (fn [v pow] {:type :exponential :value v :power pow})
-   :special-fn (fn [x v]
-                 {:type :special-fn :id x :value v})})
+{:number (fn [& args] (read-string (apply str args))) 
+ :const (fn [x] {:type :const :value x})
+ :identity (fn [& _] {:type :identity})
+ :exponential (fn [v pow] {:type :exponential :value v :power pow})
+ :special-fn (fn [x v]
+               {:type :special-fn :id x :value v})})
 
 (defn- f-op-handler [id]
-  (fn [x & more]
-    ;; branching based on arity
-    (if more
-      {:type id :items (vec (cons x more))}
-      x)))
+(fn [x & more]
+  ;; branching based on arity
+  (if more
+    {:type id :items (vec (cons x more))}
+    x)))
 
 (def ^:private parse-map-f-op
-  (let
-      [ops [:f-add :f-minus :f-mul :f-div ]]
-    (merge parse-map-base
-           (zipmap ops (map f-op-handler ops))
-           {:f-negate (fn [x] {:type :f-negate :value x})})))
+(let
+    [ops [:f-add :f-minus :f-mul :f-div ]]
+  (merge parse-map-base
+         (zipmap ops (map f-op-handler ops))
+         {:f-negate (fn [x] {:type :f-negate :value x})})))
 
 (def ^:private parse-map
-  (merge parse-map-base parse-map-f-op))
+(merge parse-map-base parse-map-f-op))
 
 (defn- parse-string-1 [s]
-  (let [p (get-parser)]
-    (p s)))
+(let [p (get-parser)]
+  (p s)))
 
 (defn- parse-string
   "Parses s and apply transform to the result."

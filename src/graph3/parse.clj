@@ -72,16 +72,14 @@
     (/ x y)))
 
 (defn- safe-div
-  "Same as / except returning infinity or negative infinity
-  when the denominator is zero based on the sign of the numerator."
+  "Same as / except returning infinity or negative infinity,
+  based on the sign of the numerator,  when the denominator is zero." 
   ([x] (safe-div-impl 1 x))
   ([x y] (safe-div-impl x y))
   ([x y & more] (reduce safe-div-impl (safe-div-impl x y) more)))
 
 (defn- higher-order
-  "Factory method to enable function arithmetic
-  (like in functional analysys).
-  op should be a function such as +,-,* etc."
+  "Factory method to enable function arithmetic."
   [op]
   (fn 
     ([f] f)

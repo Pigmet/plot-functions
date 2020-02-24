@@ -22,8 +22,8 @@
   exponential = f op <power> op number
   const = number
 
-  <left> = <'('>
-  <right> = <')'>
+  <left> = <'(' | '{' | '['>
+  <right> = <')' | '}' |  ']'>
 
   <power> = <'**'>
   <var> = <'x'>

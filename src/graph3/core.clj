@@ -35,6 +35,7 @@
     (doseq [s coll] (.addSeries series-coll s))
     series-coll))
 
+
 (defn new-series-collection
   "Takes map of label -> fn. Returns XYSeriesCollection."
   ([m] (let [{[low high] :x-range-initial step :step} default-frame-values]

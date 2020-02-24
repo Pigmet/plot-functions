@@ -61,6 +61,23 @@
 (defn- get-parser []
   (insta/parser the-grammar))
 
+;; zero division issue
+
+(defn- safe-div-impl [x y]
+  (if (zero? y)
+    (cond
+      (zero? x) 0
+      (pos? x) Double/POSITIVE_INFINITY
+      true Double/NEGATIVE_INFINITY)
+    (/ x y)))
+
+(defn- safe-div
+  "Same as / except returning infinity or negative infinity
+  when the denominator is zero based on the sign of the numerator."
+  ([x] (safe-div-impl 1 x))
+  ([x y] (safe-div-impl x y))
+  ([x y & more] (reduce safe-div-impl (safe-div-impl x y) more)))
+
 (defn- higher-order
   "Factory method to enable function arithmetic
   (like in functional analysys).
@@ -77,7 +94,7 @@
 
 (defn fn-mul [f & more] (apply (higher-order *) f more))
 
-(defn fn-div [f & more] (apply (higher-order /) f more))
+(defn fn-div [f & more] (apply (higher-order safe-div) f more))
 
 (defn- negate-fn [f] (fn [x] (- ( f x))))
 
@@ -88,8 +105,6 @@
 ;;;;;;;;;;;;
 ;; parse  ;;
 ;;;;;;;;;;;;
-
-
 
 (defn- handle-op [id]
   (fn [& args]
